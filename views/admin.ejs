@@ -453,16 +453,6 @@
                               >
                                 <i class="fas fa-edit"></i>
                               </button>
-                              <button
-                                type="button"
-                                class="btn btn-sm btn-outline-info"
-                                data-bs-toggle="modal"
-                                data-bs-target="#viewModal"
-                                data-student='<%= JSON.stringify(student) %>'
-                                title="View Details"
-                              >
-                                <i class="fas fa-eye"></i>
-                              </button>
                               <form method="POST" action="/admin/delete-student" style="display: inline;">
                                 <input type="hidden" name="id" value="<%= student.StudentID %>" />
                                 <button

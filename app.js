@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const path = require('path');
+require('dotenv').config();
 
 const app = express();
 const PORT = 5000;
@@ -13,7 +14,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static('public'));
 app.use(session({
-    secret: 'your-secret-key',
+    secret: process.env.SECRET_KEY,
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false }
@@ -26,8 +27,8 @@ app.set('views', path.join(__dirname, 'views'));
 // Database connection
 const db = mysql.createConnection({
     host:"localhost",
-    user:"root",
-    password:"password",
+    user:process.env.USER_NAME,
+    password:process.env.PASSWORD,
     database:"college_database"
 })
 
