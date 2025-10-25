@@ -1,0 +1,140 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Student Management System</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet" />
+    <style>
+      .input-group .btn {
+        border-radius: 0 0.375rem 0.375rem 0;
+        border-left: none;
+        border-color: #ced4da;
+      }
+      .input-group .form-control {
+        border-radius: 0.375rem 0 0 0.375rem;
+      }
+      .input-group .form-control:focus {
+        border-right: none;
+        box-shadow: none;
+      }
+      .input-group .form-control:focus + .btn {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+      }
+      .btn-outline-secondary:hover {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="container-fluid vh-100 d-flex align-items-center justify-content-center bg-light"
+    >
+      <div class="row w-100">
+        <div class="col-md-6 col-lg-4 mx-auto">
+          <div class="card shadow-lg">
+            <div class="card-body p-5">
+              <div class="text-center mb-4">
+                <h2 class="fw-bold text-primary">Student Management System</h2>
+                <p class="text-muted">Please login to continue</p>
+              </div>
+
+              <% if (error) { %>
+              <div class="alert alert-danger" role="alert"><%= error %></div>
+              <% } %>
+
+              <form method="POST" action="/login">
+                <div class="mb-3">
+                  <label for="username" class="form-label">
+                    <i class="fas fa-user me-2"></i>Username
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="username"
+                    name="username"
+                    required
+                    placeholder="Enter your username"
+                  />
+                </div>
+                <div class="mb-4">
+                  <label for="password" class="form-label">
+                    <i class="fas fa-lock me-2"></i>Password
+                  </label>
+                  <div class="input-group">
+                    <input
+                      type="password"
+                      class="form-control"
+                      id="password"
+                      name="password"
+                      required
+                      placeholder="Enter your password"
+                    />
+                    <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                      <i class="fas fa-eye" id="toggleIcon"></i>
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2">
+                  <i class="fas fa-sign-in-alt me-2"></i>Login
+                </button>
+              </form>
+
+              <div class="text-center mt-4">
+                <small class="text-muted">
+                  <strong>Demo Credentials:</strong><br />
+                  Admin: <code>admin</code> / <code>admin123</code><br />
+                  Student: <code>student1</code> / <code>password</code>
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Password toggle functionality
+      document.getElementById('togglePassword').addEventListener('click', function() {
+        const passwordField = document.getElementById('password');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (passwordField.type === 'password') {
+          passwordField.type = 'text';
+          toggleIcon.classList.remove('fa-eye');
+          toggleIcon.classList.add('fa-eye-slash');
+        } else {
+          passwordField.type = 'password';
+          toggleIcon.classList.remove('fa-eye-slash');
+          toggleIcon.classList.add('fa-eye');
+        }
+      });
+
+      // Auto-fill demo credentials on click
+      document.addEventListener('DOMContentLoaded', function() {
+        const demoCredentials = document.querySelector('.text-muted');
+        demoCredentials.addEventListener('click', function(e) {
+          if (e.target.tagName === 'CODE') {
+            const text = e.target.textContent;
+            if (text.includes('admin')) {
+              document.getElementById('username').value = 'admin';
+              document.getElementById('password').value = 'admin123';
+            } else if (text.includes('student1')) {
+              document.getElementById('username').value = 'student1';
+              document.getElementById('password').value = 'password';
+            }
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
