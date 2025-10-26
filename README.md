@@ -54,22 +54,23 @@ ADD CONSTRAINT faculty_ibfk_1
 FOREIGN KEY (DeptID) REFERENCES department (DeptID)
 ON DELETE SET NULL
 ON UPDATE CASCADE;"
-6. Create a table named "student": 
-   "CREATE TABLE student (
-  StudentID INT NOT NULL AUTO_INCREMENT,
-  user_id INT DEFAULT NULL,
-  Name VARCHAR(100) NOT NULL,
-  Address TEXT,
-  DateOfBirth DATE DEFAULT NULL,
-  Email VARCHAR(100) DEFAULT NULL,
-  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (StudentID),
-  UNIQUE KEY Email (Email),
-  KEY user_id (user_id),
-  CONSTRAINT student_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (id)
-    ON DELETE CASCADE
-)
-7. Create a table named "placement":
+
+7. Create a table named "student": 
+   "CREATE TABLE student ( StudentID INT NOT NULL AUTO_INCREMENT,
+   user_id INT DEFAULT NULL, Name VARCHAR(100) NOT NULL,
+   Address TEXT,
+   DateOfBirth DATE DEFAULT NULL,
+   Email VARCHAR(100) DEFAULT NULL,
+   created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+   currentSem INT DEFAULT NULL,
+   PRIMARY KEY (StudentID),
+   UNIQUE KEY Email (Email),
+   KEY user_id (user_id),
+   CONSTRAINT student_ibfk_1
+   FOREIGN KEY (user_id) REFERENCES users (id)
+   ON DELETE CASCADE )"
+
+8. Create a table named "placement":
    "CREATE TABLE placement (
   PlacementID INT NOT NULL AUTO_INCREMENT,
   StudentID INT NOT NULL,
@@ -83,7 +84,8 @@ ON UPDATE CASCADE;"
   CONSTRAINT placement_ibfk_1 FOREIGN KEY (StudentID) REFERENCES student (StudentID)
     ON DELETE CASCADE
 );"
-8. Create a table named "marks":
+
+9. Create a table named "marks":
    "CREATE TABLE marks (
   MarkID INT NOT NULL AUTO_INCREMENT,
   StudentID INT NOT NULL,
