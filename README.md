@@ -109,8 +109,7 @@ VALUES
 ('tridip_changdar', '$2b$10$M3bR9V1gJxD8qP2oQ9HfLe8aC5gT0bV1z7Yx2qLJw4mV7nF2ZqA5y', 'student'), -- tridip123
 ('souvik_maity', '$2b$10$P8wL9gJdF2pR5qV1kHfT9yZcO6mB1eX2lR7vS3dJx9oQ4hM5KzC2a', 'student'); -- souvik123 
 " 
-admin pass : admin123(hatched)
-rahul pass:rahul123 (hatched)
+
 2. Department and Faculty table:
    // Without HOD's first: 
    "INSERT INTO department (DeptName)
