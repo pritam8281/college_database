@@ -42,3 +42,29 @@
   KEY DeptID (DeptID),
   CONSTRAINT faculty_chk_1 CHECK (ExperienceYears >= 0)
 );"
+5. Add constraints in depatment and faculty table
+   "ALTER TABLE department
+ADD CONSTRAINT department_ibfk_1
+FOREIGN KEY (HeadFacultyID) REFERENCES faculty (FacultyID)
+ON DELETE SET NULL
+ON UPDATE CASCADE;"
+   "ALTER TABLE faculty
+ADD CONSTRAINT faculty_ibfk_1
+FOREIGN KEY (DeptID) REFERENCES department (DeptID)
+ON DELETE SET NULL
+ON UPDATE CASCADE;"
+6. Create a table named "student" \n
+   "CREATE TABLE student (
+  StudentID INT NOT NULL AUTO_INCREMENT,
+  user_id INT DEFAULT NULL,
+  Name VARCHAR(100) NOT NULL,
+  Address TEXT,
+  DateOfBirth DATE DEFAULT NULL,
+  Email VARCHAR(100) DEFAULT NULL,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (StudentID),
+  UNIQUE KEY Email (Email),
+  KEY user_id (user_id),
+  CONSTRAINT student_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (id)
+    ON DELETE CASCADE
+)
