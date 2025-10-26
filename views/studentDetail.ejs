@@ -207,10 +207,16 @@
                 <% } else { %>
                   <p class="text-muted">No department assigned</p>
                 <% } %>
+                <hr>
                 <% if (typeof currentSemester !== 'undefined' && currentSemester > 0) { %>
-                  <hr>
                   <p><strong>Current Semester:</strong> 
-                    <span class="badge bg-info fs-6">Semester <%= currentSemester %></span>
+                    <span class="badge bg-light text-dark fs-6">
+                      <i class="fas fa-graduation-cap me-1"></i>Semester <%= currentSemester %>
+                    </span>
+                  </p>
+                <% } else { %>
+                  <p><strong>Current Semester:</strong> 
+                    <span class="text-white-50">Not set</span>
                   </p>
                 <% } %>
               </div>
@@ -465,7 +471,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="editDepartmentModalLabel">
-              <i class="fas fa-edit me-2"></i>Edit Department
+              <i class="fas fa-edit me-2"></i>Edit Department & Semester
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
@@ -485,11 +491,25 @@
                   <% } %>
                 </select>
               </div>
+              <div class="mb-3">
+                <label for="editStudentSemester" class="form-label">Current Semester</label>
+                <select class="form-select" id="editStudentSemester" name="currentSem">
+                  <option value="">Select Semester</option>
+                  <option value="1" <%= (typeof currentSemester !== 'undefined' && currentSemester === 1) ? 'selected' : '' %>>Semester 1</option>
+                  <option value="2" <%= (typeof currentSemester !== 'undefined' && currentSemester === 2) ? 'selected' : '' %>>Semester 2</option>
+                  <option value="3" <%= (typeof currentSemester !== 'undefined' && currentSemester === 3) ? 'selected' : '' %>>Semester 3</option>
+                  <option value="4" <%= (typeof currentSemester !== 'undefined' && currentSemester === 4) ? 'selected' : '' %>>Semester 4</option>
+                  <option value="5" <%= (typeof currentSemester !== 'undefined' && currentSemester === 5) ? 'selected' : '' %>>Semester 5</option>
+                  <option value="6" <%= (typeof currentSemester !== 'undefined' && currentSemester === 6) ? 'selected' : '' %>>Semester 6</option>
+                  <option value="7" <%= (typeof currentSemester !== 'undefined' && currentSemester === 7) ? 'selected' : '' %>>Semester 7</option>
+                  <option value="8" <%= (typeof currentSemester !== 'undefined' && currentSemester === 8) ? 'selected' : '' %>>Semester 8</option>
+                </select>
+              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
               <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save me-1"></i>Update Department
+                <i class="fas fa-save me-1"></i>Update Information
               </button>
             </div>
           </form>

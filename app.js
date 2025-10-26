@@ -107,6 +107,8 @@ app.get('/student', async (req, res) => {
         
         if (studentRows.length > 0) {
             student = studentRows[0];
+            console.log('Student data:', student);
+            console.log('Current semester from DB:', student.currentSem);
             
             // Get student marks
             const [marksRows] = await db.promise().execute(
@@ -134,11 +136,19 @@ app.get('/student', async (req, res) => {
             department = deptRows.length > 0 ? deptRows[0] : null;
         }
         
-        // Calculate current semester
+        // Calculate current semester (use currentSem from student table if available, otherwise calculate from marks)
         let currentSemester = 0;
-        if (marks.length > 0) {
+        if (student && student.currentSem) {
+            currentSemester = student.currentSem;
+            console.log('Using currentSem from database:', currentSemester);
+        } else if (marks.length > 0) {
             currentSemester = Math.max(...marks.map(m => m.Semester));
+            console.log('Calculating from marks:', currentSemester);
+        } else {
+            console.log('No semester data available');
         }
+        
+        console.log('Final currentSemester value:', currentSemester);
         
         res.render('studentDasboard', { 
             student: student,
@@ -243,9 +253,11 @@ app.get('/admin/student/:id', async (req, res) => {
         const averageScore = totalMarks > 0 ? 
             marksRows.reduce((sum, mark) => sum + mark.Score, 0) / totalMarks : 0;
         
-        // Get current semester (latest semester from marks)
+        // Get current semester (use currentSem from student table if available, otherwise calculate from marks)
         let currentSemester = 0;
-        if (marksRows.length > 0) {
+        if (student.currentSem) {
+            currentSemester = student.currentSem;
+        } else if (marksRows.length > 0) {
             currentSemester = Math.max(...marksRows.map(m => m.Semester));
         }
         
@@ -270,7 +282,12 @@ app.get('/admin/student/:id', async (req, res) => {
 
 // Enhanced Add Student
 app.post('/admin/add-student', async (req, res) => {
-    const { username, password, name, address, dateOfBirth, email, deptId } = req.body;
+    const { username, password, name, address, dateOfBirth, email, deptId, semester } = req.body;
+    
+    console.log('=== ADD STUDENT DEBUG ===');
+    console.log('Received semester value:', semester);
+    console.log('Semester type:', typeof semester);
+    console.log('All form data:', req.body);
     
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -283,23 +300,15 @@ app.post('/admin/add-student', async (req, res) => {
         
         const userId = userResult.insertId;
         
-        // Create student record with department (check if column exists first)
-        try {
-            await db.promise().execute(
-                'INSERT INTO Student (user_id, Name, Address, DateOfBirth, Email, DeptID) VALUES (?, ?, ?, ?, ?, ?)',
-                [userId, name, address, dateOfBirth, email, deptId || null]
-            );
-        } catch (err) {
-            // If DeptID column doesn't exist, try without it
-            if (err.code === 'ER_BAD_FIELD_ERROR') {
-                await db.promise().execute(
-                    'INSERT INTO Student (user_id, Name, Address, DateOfBirth, Email) VALUES (?, ?, ?, ?, ?)',
-                    [userId, name, address, dateOfBirth, email]
-                );
-            } else {
-                throw err;
-            }
-        }
+        // Create student record with department and semester
+        console.log('Attempting to insert with currentSem:', semester);
+        console.log('Values to insert:', {userId, name, deptId, semester});
+        
+        await db.promise().execute(
+            'INSERT INTO Student (user_id, Name, Address, DateOfBirth, Email, DeptID, currentSem) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [userId, name, address, dateOfBirth, email, deptId || null, semester || null]
+        );
+        console.log('✓ Successfully inserted student with semester:', semester);
         
         res.redirect('/admin');
     } catch (error) {
@@ -310,7 +319,7 @@ app.post('/admin/add-student', async (req, res) => {
 
 // Enhanced Update Student
 app.post('/admin/update-student', async (req, res) => {
-    const { id, name, email, address, dateOfBirth, deptId } = req.body;
+    const { id, name, email, address, dateOfBirth, deptId, currentSem } = req.body;
     const referer = req.get('referer') || '/admin';
     
     try {
@@ -338,6 +347,10 @@ app.post('/admin/update-student', async (req, res) => {
             updateFields.push('DeptID = ?');
             updateValues.push(deptId || null);
         }
+        if (currentSem !== undefined) {
+            updateFields.push('currentSem = ?');
+            updateValues.push(currentSem || null);
+        }
         
         // If no fields to update, just redirect
         if (updateFields.length === 0) {
@@ -357,18 +370,26 @@ app.post('/admin/update-student', async (req, res) => {
         } catch (err) {
             console.error('Database error:', err.code, err.message);
             
-            // If DeptID column doesn't exist, try without it
-            if (err.code === 'ER_BAD_FIELD_ERROR' && updateFields.some(f => f.includes('DeptID'))) {
-                console.log('DeptID column not found, trying without it');
-                updateFields = updateFields.filter(f => !f.includes('DeptID'));
+            // If currentSem or DeptID column doesn't exist, try without them
+            if (err.code === 'ER_BAD_FIELD_ERROR') {
+                console.log('Column not found, trying without problematic columns');
+                updateFields = updateFields.filter(f => !f.includes('DeptID') && !f.includes('currentSem'));
                 if (updateFields.length > 0) {
-                    updateValues = updateValues.slice(0, updateFields.length);
+                    // Rebuild values array without the removed fields
+                    updateValues = [];
+                    updateFields.forEach(field => {
+                        const fieldName = field.split(' = ')[0];
+                        if (fieldName === 'Name' && name) updateValues.push(name);
+                        else if (fieldName === 'Email' && email) updateValues.push(email);
+                        else if (fieldName === 'Address' && address) updateValues.push(address);
+                        else if (fieldName === 'DateOfBirth' && dateOfBirth) updateValues.push(dateOfBirth);
+                    });
                     updateValues.push(id);
                     const newQuery = `UPDATE Student SET ${updateFields.join(', ')} WHERE StudentID = ?`;
-                    console.log('Retrying without DeptID:', newQuery);
+                    console.log('Retrying without problematic columns:', newQuery);
                     await db.promise().execute(newQuery, updateValues);
                 } else {
-                    console.log('No fields to update after removing DeptID');
+                    console.log('No fields to update after removing problematic columns');
                 }
             } else {
                 throw err;
