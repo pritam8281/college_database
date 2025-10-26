@@ -99,9 +99,13 @@
           <div class="card mb-4">
             <div class="card-header bg-primary text-white">
               <h5 class="card-title mb-0">
-                <i class="fas fa-user-plus me-2"></i>Add New Staff Member
+                <button class="btn btn-link text-white text-decoration-none p-0 w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#addStaffForm" aria-expanded="true" aria-controls="addStaffForm">
+                  <i class="fas fa-user-plus me-2"></i>Add New Staff Member
+                  <i class="fas fa-chevron-right ms-2 float-end" id="addStaffIcon"></i>
+                </button>
               </h5>
             </div>
+            <div class="collapse" id="addStaffForm">
             <div class="card-body">
               <form method="POST" action="/admin/add-staff">
                 <div class="row">
@@ -153,6 +157,7 @@
                   </div>
                 </div>
               </form>
+            </div>
             </div>
           </div>
 
@@ -334,6 +339,22 @@
             document.getElementById('editStaffRole').value = staffRole || '';
             document.getElementById('editStaffEmail').value = staffEmail || '';
             document.getElementById('editStaffPhone').value = staffPhone || '';
+          });
+        }
+        
+        // Handle collapse icon rotation
+        const collapseElement = document.getElementById('addStaffForm');
+        const icon = document.getElementById('addStaffIcon');
+        
+        if (collapseElement && icon) {
+          collapseElement.addEventListener('show.bs.collapse', function() {
+            icon.classList.remove('fa-chevron-right');
+            icon.classList.add('fa-chevron-down');
+          });
+          
+          collapseElement.addEventListener('hide.bs.collapse', function() {
+            icon.classList.remove('fa-chevron-down');
+            icon.classList.add('fa-chevron-right');
           });
         }
       });
