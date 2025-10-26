@@ -24,22 +24,22 @@
       }
       
       .stats-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         color: white;
       }
       
       .marks-card {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         color: white;
       }
       
       .placement-card {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         color: white;
       }
       
       .department-card {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
       }
       
@@ -72,6 +72,11 @@
         transform: translateX(-3px);
         color: white;
       }
+      
+      .accepted-placement {
+        background-color: #e3f2fd !important;
+        border-left: 4px solid #2196F3;
+      }
     </style>
   </head>
   <body>
@@ -80,7 +85,16 @@
         <a class="navbar-brand" href="/admin">
           <i class="fas fa-graduation-cap me-2"></i>Admin Panel
         </a>
-        <div class="navbar-nav ms-auto">
+        <div class="navbar-nav ms-auto d-flex flex-row">
+          <a class="nav-link me-3" href="/admin">
+            <i class="fas fa-users me-1"></i>Students
+          </a>
+          <a class="nav-link me-3" href="/admin/faculty">
+            <i class="fas fa-chalkboard-teacher me-1"></i>Faculty
+          </a>
+          <a class="nav-link me-3" href="/admin/staff">
+            <i class="fas fa-user-tie me-1"></i>Staff
+          </a>
           <span class="navbar-text me-3">
             <i class="fas fa-user me-2"></i>Welcome, Admin!
           </span>
@@ -141,10 +155,13 @@
         <div class="row mb-4">
           <div class="col-md-6">
             <div class="card">
-              <div class="card-header bg-primary text-white">
+              <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
                   <i class="fas fa-user me-2"></i>Personal Information
                 </h5>
+                <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#editPersonalInfoModal">
+                  <i class="fas fa-edit me-1"></i>Edit
+                </button>
               </div>
               <div class="card-body">
                 <p><strong>Name:</strong> <%= student.Name %></p>
@@ -170,20 +187,31 @@
           <!-- Department Information -->
           <div class="col-md-6">
             <div class="card department-card">
-              <div class="card-header">
+              <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
                   <i class="fas fa-building me-2"></i>Department Information
                 </h5>
+                <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#editDepartmentModal">
+                  <i class="fas fa-edit me-1"></i>Edit
+                </button>
               </div>
               <div class="card-body">
                 <% if (department) { %>
                   <p><strong>Department:</strong> <%= department.DeptName %></p>
                   <p><strong>Department ID:</strong> #<%= department.DeptID %></p>
-                  <% if (department.HeadFacultyID) { %>
-                    <p><strong>Head Faculty ID:</strong> #<%= department.HeadFacultyID %></p>
+                  <% if (department.FacultyHeadName) { %>
+                    <p><strong>Faculty Head:</strong> <i class="fas fa-user-tie me-1"></i><%= department.FacultyHeadName %></p>
+                  <% } else if (department.HeadFacultyID) { %>
+                    <p><strong>Faculty Head ID:</strong> #<%= department.HeadFacultyID %></p>
                   <% } %>
                 <% } else { %>
                   <p class="text-muted">No department assigned</p>
+                <% } %>
+                <% if (typeof currentSemester !== 'undefined' && currentSemester > 0) { %>
+                  <hr>
+                  <p><strong>Current Semester:</strong> 
+                    <span class="badge bg-info fs-6">Semester <%= currentSemester %></span>
+                  </p>
                 <% } %>
               </div>
             </div>
@@ -194,10 +222,13 @@
         <div class="row mb-4">
           <div class="col-12">
             <div class="card">
-              <div class="card-header marks-card">
+              <div class="card-header marks-card d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
                   <i class="fas fa-chart-line me-2"></i>Academic Performance
                 </h5>
+                <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addMarkModal">
+                  <i class="fas fa-plus me-1"></i>Add Mark
+                </button>
               </div>
               <div class="card-body">
                 <% if (marks && marks.length > 0) { %>
@@ -209,6 +240,7 @@
                           <th>Semester</th>
                           <th>Score</th>
                           <th>Grade</th>
+                          <th class="text-center">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -219,7 +251,7 @@
                               <span class="badge bg-info">Semester <%= mark.Semester %></span>
                             </td>
                             <td>
-                              <span class="badge <%= mark.Score >= 80 ? 'bg-success' : mark.Score >= 60 ? 'bg-warning text-dark' : 'bg-danger' %>">
+                              <span class="badge bg-primary">
                                 <%= mark.Score %>%
                               </span>
                             </td>
@@ -233,6 +265,34 @@
                                 else if (mark.Score >= 50) grade = 'D';
                               %>
                               <span class="badge bg-secondary grade-badge"><%= grade %></span>
+                            </td>
+                            <td class="text-center">
+                              <div class="btn-group" role="group">
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-primary"
+                                  data-bs-toggle="modal"
+                                  data-bs-target="#editMarkModal"
+                                  data-mark-id="<%= mark.MarkID || mark.id %>"
+                                  data-subject="<%= mark.Subject %>"
+                                  data-semester="<%= mark.Semester %>"
+                                  data-score="<%= mark.Score %>"
+                                  title="Edit Mark"
+                                >
+                                  <i class="fas fa-edit"></i>
+                                </button>
+                                <form method="POST" action="/admin/delete-mark" style="display: inline;">
+                                  <input type="hidden" name="mark_id" value="<%= mark.MarkID || mark.id %>" />
+                                  <button
+                                    type="submit"
+                                    class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Are you sure you want to delete this mark?')"
+                                    title="Delete Mark"
+                                  >
+                                    <i class="fas fa-trash"></i>
+                                  </button>
+                                </form>
+                              </div>
                             </td>
                           </tr>
                         <% }); %>
@@ -251,10 +311,13 @@
         <div class="row mb-4">
           <div class="col-12">
             <div class="card">
-              <div class="card-header placement-card">
+              <div class="card-header placement-card d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
                   <i class="fas fa-briefcase me-2"></i>Placement Information
                 </h5>
+                <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addPlacementModal">
+                  <i class="fas fa-plus me-1"></i>Add Placement
+                </button>
               </div>
               <div class="card-body">
                 <% if (placements && placements.length > 0) { %>
@@ -262,20 +325,36 @@
                     <table class="table table-striped">
                       <thead>
                         <tr>
+                          <th class="text-center">Accepted</th>
                           <th>Company</th>
                           <th>Role</th>
                           <th>Salary</th>
                           <th>Date Placed</th>
+                          <th class="text-center">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         <% placements.forEach(placement => { %>
-                          <tr>
+                          <tr <%= placement.IsAccepted ? 'class="accepted-placement"' : '' %>>
+                            <td class="text-center">
+                              <form method="POST" action="/admin/update-placement-accepted" style="display: inline;" id="acceptForm-<%= placement.PlacementID || placement.id %>">
+                                <input type="hidden" name="placement_id" value="<%= placement.PlacementID || placement.id %>" />
+                                <input type="hidden" name="student_id" value="<%= student.StudentID %>" />
+                                <div class="form-check">
+                                  <input type="checkbox" 
+                                         class="form-check-input" 
+                                         name="is_accepted"
+                                         value="1"
+                                         <%= placement.IsAccepted ? 'checked' : '' %>
+                                         onchange="handlePlacementAccept(this)">
+                                </div>
+                              </form>
+                            </td>
                             <td><strong><%= placement.Company %></strong></td>
                             <td><%= placement.Role %></td>
                             <td>
                               <% if (placement.Salary) { %>
-                                <span class="badge bg-success">
+                                <span class="badge bg-primary">
                                   ₹<%= placement.Salary.toLocaleString() %>
                                 </span>
                               <% } else { %>
@@ -288,6 +367,35 @@
                               <% } else { %>
                                 <span class="text-muted">Not specified</span>
                               <% } %>
+                            </td>
+                            <td class="text-center">
+                              <div class="btn-group" role="group">
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-primary"
+                                  data-bs-toggle="modal"
+                                  data-bs-target="#editPlacementModal"
+                                  data-placement-id="<%= placement.PlacementID || placement.id %>"
+                                  data-company="<%= placement.Company %>"
+                                  data-role="<%= placement.Role %>"
+                                  data-salary="<%= placement.Salary %>"
+                                  data-date-placed="<%= placement.DatePlaced ? new Date(placement.DatePlaced).toISOString().split('T')[0] : '' %>"
+                                  title="Edit Placement"
+                                >
+                                  <i class="fas fa-edit"></i>
+                                </button>
+                                <form method="POST" action="/admin/delete-placement" style="display: inline;">
+                                  <input type="hidden" name="placement_id" value="<%= placement.PlacementID || placement.id %>" />
+                                  <button
+                                    type="submit"
+                                    class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Are you sure you want to delete this placement?')"
+                                    title="Delete Placement"
+                                  >
+                                    <i class="fas fa-trash"></i>
+                                  </button>
+                                </form>
+                              </div>
                             </td>
                           </tr>
                         <% }); %>
@@ -310,7 +418,292 @@
       <% } %>
     </div>
 
+    <!-- Edit Personal Information Modal -->
+    <div class="modal fade" id="editPersonalInfoModal" tabindex="-1" aria-labelledby="editPersonalInfoModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editPersonalInfoModalLabel">
+              <i class="fas fa-edit me-2"></i>Edit Personal Information
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form method="POST" action="/admin/update-student">
+            <input type="hidden" name="id" value="<%= student.StudentID %>" />
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="editStudentName" class="form-label">Name</label>
+                <input type="text" class="form-control" id="editStudentName" name="name" value="<%= student.Name %>" required>
+              </div>
+              <div class="mb-3">
+                <label for="editStudentEmail" class="form-label">Email</label>
+                <input type="email" class="form-control" id="editStudentEmail" name="email" value="<%= student.Email || '' %>">
+              </div>
+              <div class="mb-3">
+                <label for="editStudentDOB" class="form-label">Date of Birth</label>
+                <input type="date" class="form-control" id="editStudentDOB" name="dateOfBirth" value="<%= student.DateOfBirth ? new Date(student.DateOfBirth).toISOString().split('T')[0] : '' %>">
+              </div>
+              <div class="mb-3">
+                <label for="editStudentAddress" class="form-label">Address</label>
+                <textarea class="form-control" id="editStudentAddress" name="address" rows="3"><%= student.Address || '' %></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>Update Information
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Department Modal -->
+    <div class="modal fade" id="editDepartmentModal" tabindex="-1" aria-labelledby="editDepartmentModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editDepartmentModalLabel">
+              <i class="fas fa-edit me-2"></i>Edit Department
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form method="POST" action="/admin/update-student">
+            <input type="hidden" name="id" value="<%= student.StudentID %>" />
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="editStudentDept" class="form-label">Department</label>
+                <select class="form-select" id="editStudentDept" name="deptId">
+                  <option value="">Select Department</option>
+                  <% if (departments && departments.length > 0) { %>
+                    <% departments.forEach(dept => { %>
+                      <option value="<%= dept.DeptID %>" <%= (department && dept.DeptID === department.DeptID) ? 'selected' : '' %>>
+                        <%= dept.DeptName %>
+                      </option>
+                    <% }); %>
+                  <% } %>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>Update Department
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Mark Modal -->
+    <div class="modal fade" id="editMarkModal" tabindex="-1" aria-labelledby="editMarkModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editMarkModalLabel">
+              <i class="fas fa-edit me-2"></i>Edit Mark
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form method="POST" action="/admin/update-mark">
+            <input type="hidden" id="editMarkId" name="mark_id" />
+            <input type="hidden" name="student_id" value="<%= student.StudentID %>" />
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="editSubject" class="form-label">Subject</label>
+                <input type="text" class="form-control" id="editSubject" name="subject" required>
+              </div>
+              <div class="mb-3">
+                <label for="editSemester" class="form-label">Semester</label>
+                <input type="number" class="form-control" id="editSemester" name="semester" min="1" max="8" required>
+              </div>
+              <div class="mb-3">
+                <label for="editScore" class="form-label">Score</label>
+                <input type="number" step="0.01" class="form-control" id="editScore" name="score" min="0" max="100" required>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>Update Mark
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Placement Modal -->
+    <div class="modal fade" id="editPlacementModal" tabindex="-1" aria-labelledby="editPlacementModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editPlacementModalLabel">
+              <i class="fas fa-edit me-2"></i>Edit Placement
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form method="POST" action="/admin/update-placement">
+            <input type="hidden" id="editPlacementId" name="placement_id" />
+            <input type="hidden" name="student_id" value="<%= student.StudentID %>" />
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="editCompany" class="form-label">Company</label>
+                <input type="text" class="form-control" id="editCompany" name="company" required>
+              </div>
+              <div class="mb-3">
+                <label for="editRole" class="form-label">Role</label>
+                <input type="text" class="form-control" id="editRole" name="role" required>
+              </div>
+              <div class="mb-3">
+                <label for="editSalary" class="form-label">Salary (₹)</label>
+                <input type="number" step="0.01" class="form-control" id="editSalary" name="salary">
+              </div>
+              <div class="mb-3">
+                <label for="editDatePlaced" class="form-label">Date Placed</label>
+                <input type="date" class="form-control" id="editDatePlaced" name="datePlaced">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>Update Placement
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Mark Modal -->
+    <div class="modal fade" id="addMarkModal" tabindex="-1" aria-labelledby="addMarkModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addMarkModalLabel">
+              <i class="fas fa-plus me-2"></i>Add Mark
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form method="POST" action="/admin/add-marks">
+            <input type="hidden" name="student_id" value="<%= student.StudentID %>" />
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="addSubject" class="form-label">Subject</label>
+                <input type="text" class="form-control" id="addSubject" name="subject" required>
+              </div>
+              <div class="mb-3">
+                <label for="addSemester" class="form-label">Semester</label>
+                <input type="number" class="form-control" id="addSemester" name="semester" min="1" max="8" required>
+              </div>
+              <div class="mb-3">
+                <label for="addScore" class="form-label">Score</label>
+                <input type="number" step="0.01" class="form-control" id="addScore" name="score" min="0" max="100" required>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Add Mark
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Placement Modal -->
+    <div class="modal fade" id="addPlacementModal" tabindex="-1" aria-labelledby="addPlacementModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addPlacementModalLabel">
+              <i class="fas fa-plus me-2"></i>Add Placement
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form method="POST" action="/admin/add-placement">
+            <input type="hidden" name="student_id" value="<%= student.StudentID %>" />
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="addCompany" class="form-label">Company</label>
+                <input type="text" class="form-control" id="addCompany" name="company" required>
+              </div>
+              <div class="mb-3">
+                <label for="addRole" class="form-label">Role</label>
+                <input type="text" class="form-control" id="addRole" name="role" required>
+              </div>
+              <div class="mb-3">
+                <label for="addSalary" class="form-label">Salary (₹)</label>
+                <input type="number" step="0.01" class="form-control" id="addSalary" name="salary">
+              </div>
+              <div class="mb-3">
+                <label for="addDatePlaced" class="form-label">Date Placed</label>
+                <input type="date" class="form-control" id="addDatePlaced" name="datePlaced">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Add Placement
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Edit Mark Modal functionality
+      const editMarkModal = document.getElementById('editMarkModal');
+      if (editMarkModal) {
+        editMarkModal.addEventListener('show.bs.modal', function (event) {
+          const button = event.relatedTarget;
+          const markId = button.getAttribute('data-mark-id');
+          const subject = button.getAttribute('data-subject');
+          const semester = button.getAttribute('data-semester');
+          const score = button.getAttribute('data-score');
+          
+          document.getElementById('editMarkId').value = markId;
+          document.getElementById('editSubject').value = subject;
+          document.getElementById('editSemester').value = semester;
+          document.getElementById('editScore').value = score;
+        });
+      }
+
+      // Edit Placement Modal functionality
+      const editPlacementModal = document.getElementById('editPlacementModal');
+      if (editPlacementModal) {
+        editPlacementModal.addEventListener('show.bs.modal', function (event) {
+          const button = event.relatedTarget;
+          const placementId = button.getAttribute('data-placement-id');
+          const company = button.getAttribute('data-company');
+          const role = button.getAttribute('data-role');
+          const salary = button.getAttribute('data-salary');
+          const datePlaced = button.getAttribute('data-date-placed');
+          
+          document.getElementById('editPlacementId').value = placementId;
+          document.getElementById('editCompany').value = company;
+          document.getElementById('editRole').value = role;
+          document.getElementById('editSalary').value = salary || '';
+          document.getElementById('editDatePlaced').value = datePlaced || '';
+        });
+      }
+
+      // Handle placement acceptance - only one checkbox can be checked at a time
+      function handlePlacementAccept(checkbox) {
+        // If checked, submit the form
+        if (checkbox.checked) {
+          checkbox.form.submit();
+        } else {
+          // If unchecked, just submit to clear this one
+          checkbox.form.submit();
+        }
+      }
+    </script>
   </body>
 </html>
 

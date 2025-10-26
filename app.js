@@ -123,10 +123,29 @@ app.get('/student', async (req, res) => {
             placements = placementRows;
         }
         
+        // Get department information for the student
+        let department = null;
+        if (student && (student.DeptID || student.Department)) {
+            const deptId = student.DeptID || student.Department;
+            const [deptRows] = await db.promise().execute(
+                'SELECT d.*, f.Name as FacultyHeadName FROM Department d LEFT JOIN Faculty f ON d.HeadFacultyID = f.FacultyID WHERE d.DeptID = ?',
+                [deptId]
+            );
+            department = deptRows.length > 0 ? deptRows[0] : null;
+        }
+        
+        // Calculate current semester
+        let currentSemester = 0;
+        if (marks.length > 0) {
+            currentSemester = Math.max(...marks.map(m => m.Semester));
+        }
+        
         res.render('studentDasboard', { 
             student: student,
             marks: marks,
             placements: placements,
+            department: department,
+            currentSemester: currentSemester,
             success: req.query.success,
             error: req.query.error
         });
@@ -136,6 +155,8 @@ app.get('/student', async (req, res) => {
             student: null,
             marks: [],
             placements: [],
+            department: null,
+            currentSemester: 0,
             success: req.query.success,
             error: req.query.error
         });
@@ -149,9 +170,9 @@ app.get('/admin', async (req, res) => {
     }
     
     try {
-        // Get all students
+        // Get all students with department information
         const [studentsRows] = await db.promise().execute(
-            'SELECT s.*, u.username FROM Student s JOIN users u ON s.user_id = u.id'
+            'SELECT s.*, u.username, d.DeptName as DepartmentName, d.HeadFacultyID as DepartmentHeadID, f.Name as FacultyHeadName FROM Student s JOIN users u ON s.user_id = u.id LEFT JOIN Department d ON s.DeptID = d.DeptID LEFT JOIN Faculty f ON d.HeadFacultyID = f.FacultyID'
         );
         
         // Get all departments
@@ -208,21 +229,33 @@ app.get('/admin/student/:id', async (req, res) => {
         );
         
         // Get department information (if student has department)
+        const deptId = student.DeptID || student.Department || 0;
         const [departmentRows] = await db.promise().execute(
-            'SELECT * FROM Department WHERE DeptID = ?',
-            [student.DeptID || 0]
+            'SELECT d.*, f.Name as FacultyHeadName FROM Department d LEFT JOIN Faculty f ON d.HeadFacultyID = f.FacultyID WHERE d.DeptID = ?',
+            [deptId]
         );
+        
+        // Get all departments for dropdown
+        const [allDepartments] = await db.promise().execute('SELECT * FROM Department');
         
         // Calculate academic statistics
         const totalMarks = marksRows.length;
         const averageScore = totalMarks > 0 ? 
             marksRows.reduce((sum, mark) => sum + mark.Score, 0) / totalMarks : 0;
         
+        // Get current semester (latest semester from marks)
+        let currentSemester = 0;
+        if (marksRows.length > 0) {
+            currentSemester = Math.max(...marksRows.map(m => m.Semester));
+        }
+        
         res.render('studentDetail', {
             student: student,
             marks: marksRows,
             placements: placementRows,
             department: departmentRows.length > 0 ? departmentRows[0] : null,
+            departments: allDepartments,
+            currentSemester: currentSemester,
             stats: {
                 totalMarks: totalMarks,
                 averageScore: Math.round(averageScore * 100) / 100,
@@ -237,7 +270,7 @@ app.get('/admin/student/:id', async (req, res) => {
 
 // Enhanced Add Student
 app.post('/admin/add-student', async (req, res) => {
-    const { username, password, name, address, dateOfBirth, email } = req.body;
+    const { username, password, name, address, dateOfBirth, email, deptId } = req.body;
     
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -250,11 +283,23 @@ app.post('/admin/add-student', async (req, res) => {
         
         const userId = userResult.insertId;
         
-        // Create student record
-        await db.promise().execute(
-            'INSERT INTO Student (user_id, Name, Address, DateOfBirth, Email) VALUES (?, ?, ?, ?, ?)',
-            [userId, name, address, dateOfBirth, email]
-        );
+        // Create student record with department (check if column exists first)
+        try {
+            await db.promise().execute(
+                'INSERT INTO Student (user_id, Name, Address, DateOfBirth, Email, DeptID) VALUES (?, ?, ?, ?, ?, ?)',
+                [userId, name, address, dateOfBirth, email, deptId || null]
+            );
+        } catch (err) {
+            // If DeptID column doesn't exist, try without it
+            if (err.code === 'ER_BAD_FIELD_ERROR') {
+                await db.promise().execute(
+                    'INSERT INTO Student (user_id, Name, Address, DateOfBirth, Email) VALUES (?, ?, ?, ?, ?)',
+                    [userId, name, address, dateOfBirth, email]
+                );
+            } else {
+                throw err;
+            }
+        }
         
         res.redirect('/admin');
     } catch (error) {
@@ -265,24 +310,82 @@ app.post('/admin/add-student', async (req, res) => {
 
 // Enhanced Update Student
 app.post('/admin/update-student', async (req, res) => {
-    const { id, name, email, address, dateOfBirth } = req.body;
+    const { id, name, email, address, dateOfBirth, deptId } = req.body;
+    const referer = req.get('referer') || '/admin';
     
     try {
-        await db.promise().execute(
-            'UPDATE Student SET Name = ?, Email = ?, Address = ?, DateOfBirth = ? WHERE StudentID = ?',
-            [name, email, address, dateOfBirth, id]
-        );
+        // Build dynamic update query based on provided fields
+        let updateFields = [];
+        let updateValues = [];
         
-        res.redirect('/admin');
+        if (name !== undefined && name !== '') {
+            updateFields.push('Name = ?');
+            updateValues.push(name);
+        }
+        if (email !== undefined && email !== '') {
+            updateFields.push('Email = ?');
+            updateValues.push(email);
+        }
+        if (address !== undefined && address !== '') {
+            updateFields.push('Address = ?');
+            updateValues.push(address);
+        }
+        if (dateOfBirth !== undefined && dateOfBirth !== '') {
+            updateFields.push('DateOfBirth = ?');
+            updateValues.push(dateOfBirth);
+        }
+        if (deptId !== undefined) {
+            updateFields.push('DeptID = ?');
+            updateValues.push(deptId || null);
+        }
+        
+        // If no fields to update, just redirect
+        if (updateFields.length === 0) {
+            return res.redirect(referer);
+        }
+        
+        // Add WHERE clause
+        updateValues.push(id);
+        const updateQuery = `UPDATE Student SET ${updateFields.join(', ')} WHERE StudentID = ?`;
+        
+        console.log('Update query:', updateQuery);
+        console.log('Update values:', updateValues);
+        
+        try {
+            await db.promise().execute(updateQuery, updateValues);
+            console.log('Update successful');
+        } catch (err) {
+            console.error('Database error:', err.code, err.message);
+            
+            // If DeptID column doesn't exist, try without it
+            if (err.code === 'ER_BAD_FIELD_ERROR' && updateFields.some(f => f.includes('DeptID'))) {
+                console.log('DeptID column not found, trying without it');
+                updateFields = updateFields.filter(f => !f.includes('DeptID'));
+                if (updateFields.length > 0) {
+                    updateValues = updateValues.slice(0, updateFields.length);
+                    updateValues.push(id);
+                    const newQuery = `UPDATE Student SET ${updateFields.join(', ')} WHERE StudentID = ?`;
+                    console.log('Retrying without DeptID:', newQuery);
+                    await db.promise().execute(newQuery, updateValues);
+                } else {
+                    console.log('No fields to update after removing DeptID');
+                }
+            } else {
+                throw err;
+            }
+        }
+        
+        res.redirect(referer);
     } catch (error) {
         console.error('Update student error:', error);
-        res.redirect('/admin');
+        res.redirect(referer);
     }
 });
 
 // Add Student Marks
 app.post('/admin/add-marks', async (req, res) => {
     const { student_id, subject, semester, score } = req.body;
+    const referer = req.get('referer') || '/admin';
     
     try {
         await db.promise().execute(
@@ -290,16 +393,26 @@ app.post('/admin/add-marks', async (req, res) => {
             [student_id, subject, semester, score]
         );
         
-        res.redirect('/admin');
+        // If coming from student detail page, redirect back there
+        if (referer.includes('/admin/student/')) {
+            res.redirect(referer);
+        } else {
+            res.redirect('/admin');
+        }
     } catch (error) {
         console.error('Add marks error:', error);
-        res.redirect('/admin');
+        if (referer.includes('/admin/student/')) {
+            res.redirect(referer);
+        } else {
+            res.redirect('/admin');
+        }
     }
 });
 
 // Add Student Placement
 app.post('/admin/add-placement', async (req, res) => {
     const { student_id, company, role, salary, datePlaced } = req.body;
+    const referer = req.get('referer') || '/admin';
     
     try {
         await db.promise().execute(
@@ -307,10 +420,145 @@ app.post('/admin/add-placement', async (req, res) => {
             [student_id, company, role, salary, datePlaced]
         );
         
-        res.redirect('/admin');
+        // If coming from student detail page, redirect back there
+        if (referer.includes('/admin/student/')) {
+            res.redirect(referer);
+        } else {
+            res.redirect('/admin');
+        }
     } catch (error) {
         console.error('Add placement error:', error);
-        res.redirect('/admin');
+        if (referer.includes('/admin/student/')) {
+            res.redirect(referer);
+        } else {
+            res.redirect('/admin');
+        }
+    }
+});
+
+// Update Student Mark
+app.post('/admin/update-mark', async (req, res) => {
+    const { mark_id, subject, semester, score } = req.body;
+    const referer = req.get('referer') || '/admin';
+    
+    try {
+        // Try MarkID first, fallback to id
+        try {
+            await db.promise().execute(
+                'UPDATE Marks SET Subject = ?, Semester = ?, Score = ? WHERE MarkID = ?',
+                [subject, semester, score, mark_id]
+            );
+        } catch (err) {
+            await db.promise().execute(
+                'UPDATE Marks SET Subject = ?, Semester = ?, Score = ? WHERE id = ?',
+                [subject, semester, score, mark_id]
+            );
+        }
+        
+        res.redirect(referer);
+    } catch (error) {
+        console.error('Update mark error:', error);
+        res.redirect(referer);
+    }
+});
+
+// Delete Student Mark
+app.post('/admin/delete-mark', async (req, res) => {
+    const { mark_id } = req.body;
+    const referer = req.get('referer') || '/admin';
+    
+    try {
+        // Try MarkID first, fallback to id
+        try {
+            await db.promise().execute('DELETE FROM Marks WHERE MarkID = ?', [mark_id]);
+        } catch (err) {
+            await db.promise().execute('DELETE FROM Marks WHERE id = ?', [mark_id]);
+        }
+        
+        res.redirect(referer);
+    } catch (error) {
+        console.error('Delete mark error:', error);
+        res.redirect(referer);
+    }
+});
+
+// Update Student Placement
+app.post('/admin/update-placement', async (req, res) => {
+    const { placement_id, company, role, salary, datePlaced } = req.body;
+    const referer = req.get('referer') || '/admin';
+    
+    try {
+        // Try PlacementID first, fallback to id
+        try {
+            await db.promise().execute(
+                'UPDATE Placement SET Company = ?, Role = ?, Salary = ?, DatePlaced = ? WHERE PlacementID = ?',
+                [company, role, salary, datePlaced, placement_id]
+            );
+        } catch (err) {
+            await db.promise().execute(
+                'UPDATE Placement SET Company = ?, Role = ?, Salary = ?, DatePlaced = ? WHERE id = ?',
+                [company, role, salary, datePlaced, placement_id]
+            );
+        }
+        
+        res.redirect(referer);
+    } catch (error) {
+        console.error('Update placement error:', error);
+        res.redirect(referer);
+    }
+});
+
+// Update Placement Accepted Status
+app.post('/admin/update-placement-accepted', async (req, res) => {
+    const { placement_id, student_id, is_accepted } = req.body;
+    const referer = req.get('referer') || '/admin';
+    
+    try {
+        // First, set all placements for this student to not accepted
+        await db.promise().execute(
+            'UPDATE Placement SET IsAccepted = 0 WHERE StudentID = ?',
+            [student_id]
+        );
+        
+        // If the checkbox was checked, set this placement to accepted
+        if (is_accepted) {
+            try {
+                await db.promise().execute(
+                    'UPDATE Placement SET IsAccepted = 1 WHERE PlacementID = ?',
+                    [placement_id]
+                );
+            } catch (err) {
+                await db.promise().execute(
+                    'UPDATE Placement SET IsAccepted = 1 WHERE id = ?',
+                    [placement_id]
+                );
+            }
+        }
+        
+        res.redirect(referer);
+    } catch (error) {
+        console.error('Update placement accepted error:', error);
+        res.redirect(referer);
+    }
+});
+
+// Delete Student Placement
+app.post('/admin/delete-placement', async (req, res) => {
+    const { placement_id } = req.body;
+    const referer = req.get('referer') || '/admin';
+    
+    try {
+        // Try PlacementID first, fallback to id
+        try {
+            await db.promise().execute('DELETE FROM Placement WHERE PlacementID = ?', [placement_id]);
+        } catch (err) {
+            await db.promise().execute('DELETE FROM Placement WHERE id = ?', [placement_id]);
+        }
+        
+        res.redirect(referer);
+    } catch (error) {
+        console.error('Delete placement error:', error);
+        res.redirect(referer);
     }
 });
 
@@ -464,6 +712,226 @@ app.post('/student/update-personal-info', async (req, res) => {
         }
         
         res.redirect('/student?error=Failed to update personal information: ' + error.message);
+    }
+});
+
+// Staff Management Routes
+app.get('/admin/staff', async (req, res) => {
+    if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.redirect('/');
+    }
+    
+    try {
+        const [staffRows] = await db.promise().execute('SELECT * FROM nonTeachingStaff ORDER BY StaffID DESC');
+        
+        res.render('staff', { 
+            staff: staffRows
+        });
+    } catch (error) {
+        console.error('Staff management error:', error);
+        res.render('staff', { 
+            staff: []
+        });
+    }
+});
+
+app.post('/admin/add-staff', async (req, res) => {
+    const { name, role, email, phone } = req.body;
+    
+    try {
+        await db.promise().execute(
+            'INSERT INTO nonTeachingStaff (Name, Role, Email, Phone) VALUES (?, ?, ?, ?)',
+            [name, role, email || null, phone || null]
+        );
+        
+        res.redirect('/admin/staff');
+    } catch (error) {
+        console.error('Add staff error:', error);
+        res.redirect('/admin/staff');
+    }
+});
+
+app.post('/admin/update-staff', async (req, res) => {
+    const { id, name, role, email, phone } = req.body;
+    
+    try {
+        await db.promise().execute(
+            'UPDATE nonTeachingStaff SET Name = ?, Role = ?, Email = ?, Phone = ? WHERE StaffID = ?',
+            [name, role, email || null, phone || null, id]
+        );
+        
+        res.redirect('/admin/staff');
+    } catch (error) {
+        console.error('Update staff error:', error);
+        res.redirect('/admin/staff');
+    }
+});
+
+app.post('/admin/delete-staff', async (req, res) => {
+    const { id } = req.body;
+    
+    try {
+        await db.promise().execute('DELETE FROM nonTeachingStaff WHERE StaffID = ?', [id]);
+        
+        res.redirect('/admin/staff');
+    } catch (error) {
+        console.error('Delete staff error:', error);
+        res.redirect('/admin/staff');
+    }
+});
+
+// Faculty Management Routes
+app.get('/admin/faculty', async (req, res) => {
+    if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.redirect('/');
+    }
+    
+    try {
+        const [facultyRows] = await db.promise().execute('SELECT * FROM Faculty ORDER BY FacultyID DESC');
+        
+        res.render('faculty', { 
+            faculty: facultyRows
+        });
+    } catch (error) {
+        console.error('Faculty management error:', error);
+        res.render('faculty', { 
+            faculty: []
+        });
+    }
+});
+
+app.post('/admin/add-faculty', async (req, res) => {
+    const { name, department, email, phone } = req.body;
+    
+    try {
+        await db.promise().execute(
+            'INSERT INTO Faculty (Name, Department, Email, Phone) VALUES (?, ?, ?, ?)',
+            [name, department, email || null, phone || null]
+        );
+        
+        res.redirect('/admin/faculty');
+    } catch (error) {
+        console.error('Add faculty error:', error);
+        res.redirect('/admin/faculty');
+    }
+});
+
+app.post('/admin/update-faculty', async (req, res) => {
+    const { id, name, department, email, phone } = req.body;
+    
+    try {
+        await db.promise().execute(
+            'UPDATE Faculty SET Name = ?, Department = ?, Email = ?, Phone = ? WHERE FacultyID = ?',
+            [name, department, email || null, phone || null, id]
+        );
+        
+        res.redirect('/admin/faculty');
+    } catch (error) {
+        console.error('Update faculty error:', error);
+        res.redirect('/admin/faculty');
+    }
+});
+
+app.post('/admin/delete-faculty', async (req, res) => {
+    const { id } = req.body;
+    
+    try {
+        await db.promise().execute('DELETE FROM Faculty WHERE FacultyID = ?', [id]);
+        
+        res.redirect('/admin/faculty');
+    } catch (error) {
+        console.error('Delete faculty error:', error);
+        res.redirect('/admin/faculty');
+    }
+});
+
+// Export Routes
+app.get('/admin/export-students', async (req, res) => {
+    if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.redirect('/');
+    }
+    
+    try {
+        const [studentsRows] = await db.promise().execute(
+            'SELECT s.*, u.username, d.DeptName as DepartmentName FROM Student s LEFT JOIN users u ON s.user_id = u.id LEFT JOIN Department d ON s.DeptID = d.DeptID ORDER BY s.StudentID'
+        );
+        
+        // Generate CSV content
+        let csv = 'ID,Name,Email,DateOfBirth,Address,StudentID,Username,Department\n';
+        studentsRows.forEach(student => {
+            const name = (student.Name || '').replace(/"/g, '""');
+            const email = (student.Email || '').replace(/"/g, '""');
+            const dob = (student.DateOfBirth ? new Date(student.DateOfBirth).toLocaleDateString() : '').replace(/"/g, '""');
+            const address = (student.Address || '').replace(/"/g, '""');
+            const username = (student.username || '').replace(/"/g, '""');
+            const dept = (student.DepartmentName || '').replace(/"/g, '""');
+            
+            csv += `${student.StudentID},"${name}","${email}","${dob}","${address}",` +
+                   `${student.StudentID},"${username}","${dept}"\n`;
+        });
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=students.csv');
+        res.send(csv);
+    } catch (error) {
+        console.error('Export students error:', error);
+        res.redirect('/admin');
+    }
+});
+
+app.get('/admin/export-staff', async (req, res) => {
+    if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.redirect('/');
+    }
+    
+    try {
+        const [staffRows] = await db.promise().execute('SELECT * FROM nonTeachingStaff ORDER BY StaffID');
+        
+        // Generate CSV content
+        let csv = 'ID,Name,Role,Email,Phone\n';
+        staffRows.forEach(staff => {
+            const name = (staff.Name || '').replace(/"/g, '""');
+            const role = (staff.Role || '').replace(/"/g, '""');
+            const email = (staff.Email || '').replace(/"/g, '""');
+            const phone = (staff.Phone || '').replace(/"/g, '""');
+            
+            csv += `${staff.StaffID},"${name}","${role}","${email}","${phone}"\n`;
+        });
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=staff.csv');
+        res.send(csv);
+    } catch (error) {
+        console.error('Export staff error:', error);
+        res.redirect('/admin/staff');
+    }
+});
+
+app.get('/admin/export-faculty', async (req, res) => {
+    if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.redirect('/');
+    }
+    
+    try {
+        const [facultyRows] = await db.promise().execute('SELECT * FROM Faculty ORDER BY FacultyID');
+        
+        // Generate CSV content
+        let csv = 'ID,Name,Department,Email,Phone\n';
+        facultyRows.forEach(faculty => {
+            const name = (faculty.Name || '').replace(/"/g, '""');
+            const dept = (faculty.Department || '').replace(/"/g, '""');
+            const email = (faculty.Email || '').replace(/"/g, '""');
+            const phone = (faculty.Phone || '').replace(/"/g, '""');
+            
+            csv += `${faculty.FacultyID},"${name}","${dept}","${email}","${phone}"\n`;
+        });
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=faculty.csv');
+        res.send(csv);
+    } catch (error) {
+        console.error('Export faculty error:', error);
+        res.redirect('/admin/faculty');
     }
 });
 

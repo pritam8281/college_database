@@ -24,6 +24,13 @@
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
       }
+      .accepted-placement {
+        background-color: #d4edda !important;
+        border-left: 4px solid #28a745;
+      }
+      .accepted-placement:hover {
+        background-color: #c3e6cb !important;
+      }
     </style>
   </head>
   <body>
@@ -62,7 +69,7 @@
       <% if (student) { %>
         <!-- Personal Information -->
         <div class="row mb-4">
-          <div class="col-12">
+          <div class="col-md-8">
             <div class="card">
               <div class="card-header department-info d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
@@ -88,6 +95,50 @@
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Department & Semester Info -->
+          <div class="col-md-4">
+            <div class="card h-100">
+              <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">
+                  <i class="fas fa-building me-2"></i>Department & Semester
+                </h5>
+              </div>
+              <div class="card-body">
+                <% if (department) { %>
+                  <p><strong>Department:</strong></p>
+                  <p class="mb-2">
+                    <i class="fas fa-building text-primary me-1"></i>
+                    <%= department.DeptName %>
+                  </p>
+                  <% if (department.FacultyHeadName) { %>
+                    <p><strong>Faculty Head:</strong></p>
+                    <p class="mb-2">
+                      <i class="fas fa-user-tie text-success me-1"></i>
+                      <%= department.FacultyHeadName %>
+                    </p>
+                  <% } %>
+                <% } else { %>
+                  <p class="text-muted">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    No department assigned
+                  </p>
+                <% } %>
+                <% if (typeof currentSemester !== 'undefined' && currentSemester > 0) { %>
+                  <hr>
+                  <p><strong>Current Semester:</strong></p>
+                  <span class="badge bg-primary fs-5">
+                    <i class="fas fa-graduation-cap me-1"></i>Semester <%= currentSemester %>
+                  </span>
+                <% } else { %>
+                  <hr>
+                  <p class="text-muted mb-0">
+                    <i class="fas fa-info-circle me-1"></i>No semester data
+                  </p>
+                <% } %>
               </div>
             </div>
           </div>
@@ -167,18 +218,41 @@
                           <th>Role</th>
                           <th>Salary</th>
                           <th>Date Placed</th>
+                          <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
+                        <% 
+                          // Check if any placement is accepted
+                          const hasAcceptedPlacement = placements.some(p => p.IsAccepted === 1 || p.IsAccepted === true);
+                        %>
                         <% placements.forEach(placement => { %>
-                          <tr>
-                            <td><strong><%= placement.Company %></strong></td>
+                          <% 
+                            const isAccepted = placement.IsAccepted === 1 || placement.IsAccepted === true;
+                            // If any placement is accepted and this one is not, mark it as cancelled
+                            const isCancelled = hasAcceptedPlacement && !isAccepted;
+                          %>
+                          <tr class="<%= isAccepted ? 'accepted-placement' : isCancelled ? 'text-muted' : '' %>">
+                            <td>
+                              <strong><%= placement.Company %></strong>
+                              <% if (isAccepted) { %>
+                                <span class="badge bg-success ms-2">
+                                  <i class="fas fa-check-circle me-1"></i>Accepted
+                                </span>
+                              <% } %>
+                            </td>
                             <td><%= placement.Role %></td>
                             <td>
                               <% if (placement.Salary) { %>
-                                <span class="badge bg-success fs-6">
-                                  ₹<%= placement.Salary.toLocaleString() %>
-                                </span>
+                                <% if (isAccepted) { %>
+                                  <span class="badge bg-success fs-6">
+                                    ₹<%= placement.Salary.toLocaleString() %>
+                                  </span>
+                                <% } else { %>
+                                  <span class="badge bg-secondary fs-6">
+                                    ₹<%= placement.Salary.toLocaleString() %>
+                                  </span>
+                                <% } %>
                               <% } else { %>
                                 <span class="text-muted">Not disclosed</span>
                               <% } %>
@@ -188,6 +262,21 @@
                                 <%= new Date(placement.DatePlaced).toLocaleDateString() %>
                               <% } else { %>
                                 <span class="text-muted">Not specified</span>
+                              <% } %>
+                            </td>
+                            <td>
+                              <% if (isAccepted) { %>
+                                <span class="badge bg-success">
+                                  <i class="fas fa-check-circle me-1"></i>Accepted Offer
+                                </span>
+                              <% } else if (isCancelled) { %>
+                                <span class="badge bg-danger">
+                                  <i class="fas fa-times-circle me-1"></i>Cancelled
+                                </span>
+                              <% } else { %>
+                                <span class="badge bg-secondary">
+                                  <i class="fas fa-clock me-1"></i>Pending
+                                </span>
                               <% } %>
                             </td>
                           </tr>
