@@ -130,4 +130,6 @@ UPDATE department SET HeadFacultyID = 1 WHERE DeptID = 1;
 UPDATE department SET HeadFacultyID = 5 WHERE DeptID = 2;
 UPDATE department SET HeadFacultyID = 9 WHERE DeptID = 3;" 
 
+## TO run the the website 
+Type npm start on the your terminal.
 
